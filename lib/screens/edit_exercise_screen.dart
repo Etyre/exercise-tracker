@@ -5,7 +5,6 @@ import '../data/exercise_catalog.dart';
 import '../data/exercise_store.dart';
 import '../data/session_store.dart';
 import '../models/exercise.dart';
-import '../models/units.dart';
 import '../widgets/section_header.dart';
 
 /// Create a new exercise kind (no [exerciseId]) or edit an existing one.
@@ -376,15 +375,11 @@ class _FieldDialog extends StatefulWidget {
   State<_FieldDialog> createState() => _FieldDialogState();
 }
 
-const String _kOtherUnit = '__other__';
-
 class _FieldDialogState extends State<_FieldDialog> {
   late final TextEditingController _label;
-  late final TextEditingController _customUnit;
+  late final TextEditingController _unit;
   late FieldType _type;
-
-  /// Selected preset, or [_kOtherUnit] when typing a custom one.
-  late String _unitChoice;
+  late bool _seconds;
 
   @override
   void initState() {
@@ -392,46 +387,26 @@ class _FieldDialogState extends State<_FieldDialog> {
     final e = widget.existing;
     _label = TextEditingController(text: e?.label ?? '');
     _type = e?.type ?? FieldType.number;
-    final unit = e?.unit ?? '';
-    final presets = _type == FieldType.duration ? timeUnits : numberUnits;
-    final isPreset = presets.any((u) => u.value == unit);
-    _unitChoice = e == null
-        ? (_type == FieldType.duration ? 'min' : '')
-        : isPreset
-            ? unit
-            : _kOtherUnit;
-    _customUnit = TextEditingController(text: isPreset ? '' : unit);
+    _seconds = e?.entersSeconds ?? false;
+    _unit = TextEditingController(text: e != null && !e.isDuration ? e.unit : '');
   }
 
   @override
   void dispose() {
     _label.dispose();
-    _customUnit.dispose();
+    _unit.dispose();
     super.dispose();
   }
 
-  void _setType(FieldType t) {
-    setState(() {
-      _type = t;
-      // Keep the choice if it's valid for the new type, else reset.
-      final presets = t == FieldType.duration ? timeUnits : numberUnits;
-      if (!presets.any((u) => u.value == _unitChoice) && _unitChoice != _kOtherUnit) {
-        _unitChoice = t == FieldType.duration ? 'min' : '';
-      }
-      if (t == FieldType.duration && _unitChoice == _kOtherUnit) _unitChoice = 'min';
-    });
-  }
-
-  String get _unit {
-    if (_type == FieldType.text) return '';
-    if (_unitChoice == _kOtherUnit) return _customUnit.text.trim();
-    return _unitChoice;
-  }
+  String get _resolvedUnit => switch (_type) {
+        FieldType.duration => _seconds ? 'sec' : 'min',
+        FieldType.text => '',
+        _ => _unit.text.trim(),
+      };
 
   @override
   Widget build(BuildContext context) {
-    final isTime = _type == FieldType.duration;
-    final presets = isTime ? timeUnits : numberUnits;
+    final showUnit = _type == FieldType.number || _type == FieldType.integer;
     return AlertDialog(
       title: Text(widget.existing == null ? 'New field' : 'Edit field'),
       content: SingleChildScrollView(
@@ -453,32 +428,26 @@ class _FieldDialogState extends State<_FieldDialog> {
                 for (final t in FieldType.values)
                   DropdownMenuItem(value: t, child: Text(t.label)),
               ],
-              onChanged: (t) => _setType(t ?? _type),
+              onChanged: (t) => setState(() => _type = t ?? _type),
             ),
-            if (_type != FieldType.text) ...[
+            if (showUnit) ...[
               const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                key: ValueKey('unit-${_type.name}'),
-                initialValue: _unitChoice,
-                isExpanded: true,
-                decoration: InputDecoration(labelText: isTime ? 'Entered in' : 'Unit'),
-                items: [
-                  for (final u in presets)
-                    DropdownMenuItem(value: u.value, child: Text(u.label)),
-                  if (!isTime)
-                    const DropdownMenuItem(value: _kOtherUnit, child: Text('Other…')),
-                ],
-                onChanged: (v) => setState(() => _unitChoice = v ?? _unitChoice),
+              TextField(
+                controller: _unit,
+                decoration: const InputDecoration(
+                    labelText: 'Unit (optional)', hintText: 'e.g. mph, min/km, lb, bpm'),
               ),
-              if (!isTime && _unitChoice == _kOtherUnit) ...[
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _customUnit,
-                  autofocus: true,
-                  decoration: const InputDecoration(
-                      labelText: 'Custom unit', hintText: 'e.g. laps'),
-                ),
-              ],
+            ],
+            if (_type == FieldType.duration) ...[
+              const SizedBox(height: 12),
+              SegmentedButton<bool>(
+                segments: const [
+                  ButtonSegment(value: false, label: Text('Minutes')),
+                  ButtonSegment(value: true, label: Text('Seconds')),
+                ],
+                selected: {_seconds},
+                onSelectionChanged: (s) => setState(() => _seconds = s.first),
+              ),
             ],
           ],
         ),
@@ -495,7 +464,7 @@ class _FieldDialogState extends State<_FieldDialog> {
                 key: widget.existing?.key ?? '',
                 label: label,
                 type: _type,
-                unit: _unit,
+                unit: _resolvedUnit,
               ),
             );
           },
