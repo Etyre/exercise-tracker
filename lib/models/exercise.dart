@@ -17,7 +17,7 @@ extension FieldTypeLabel on FieldType {
   String get label => switch (this) {
         FieldType.number => 'Number',
         FieldType.integer => 'Whole number',
-        FieldType.duration => 'Time (minutes)',
+        FieldType.duration => 'Time',
         FieldType.text => 'Text',
       };
 }
@@ -36,8 +36,13 @@ class FieldDef {
   String label;
   FieldType type;
 
-  /// Shown after the input, e.g. "mph". Ignored for duration/text.
+  /// Shown after the input, e.g. "mph". For [FieldType.duration] it is the
+  /// unit the value is *entered* in: 'min' (default) or 'sec'. Durations
+  /// are always stored in seconds.
   String unit;
+
+  bool get isDuration => type == FieldType.duration;
+  bool get entersSeconds => isDuration && unit == 'sec';
 
   FieldDef copy() => FieldDef(key: key, label: label, type: type, unit: unit);
 

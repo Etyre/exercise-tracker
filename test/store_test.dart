@@ -79,6 +79,13 @@ void main() {
     final file = File('${tmp.path}/exercises.json');
     // Simulate a v1 install that never had "Other".
     final v1 = defaultExercises().where((e) => e.id != 'other').toList();
+    for (final e in v1) {
+      e.weeklyTotalField = null;
+      e.trackingGroup = null;
+      for (final f in e.fields) {
+        if (f.isDuration) f.unit = '';
+      }
+    }
     file.writeAsStringSync(jsonEncode({
       'version': 1,
       'exercises': v1.map((e) => e.toJson()).toList(),
@@ -92,6 +99,10 @@ void main() {
     expect(store.byId('other')!.onTrackingTable, isFalse);
     // v5 update: chin ups and bicep curls share a row.
     expect(store.byId('bicep_curls')!.trackingGroup, 'Chin Ups & Bicep Curls');
+    // v6 update: interval ramp/work/easy times switch to seconds.
+    final iv = store.byId('cardio_intervals')!;
+    expect(iv.fields.where((f) => f.entersSeconds).map((f) => f.key),
+        ['ramp_up_time', 'work_time', 'easy_time']);
 
     // Deleting it sticks: the migration doesn't run twice.
     await store.remove('other');
@@ -114,6 +125,8 @@ void main() {
     expect(store.byId('bicep_curls')!.trackingGroup, 'Chin Ups & Bicep Curls');
     expect(store.byId('pull_ups')!.trackingGroup, isNull);
     expect(store.byId('cardio_intervals')!.fields.length, 7);
+    expect(store.byId('cardio_intervals')!.fields.first.entersSeconds, isTrue);
+    expect(store.byId('cardio_intervals')!.fields.last.entersSeconds, isFalse); // zone 5 in minutes
     expect(store.byId('pull_ups')!.group, 'Pull Ups & Chin Ups');
 
     final id = store.newId('Overhead Squat');

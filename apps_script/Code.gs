@@ -186,12 +186,12 @@ function fieldsSummary_(fields) {
 
 /** Durations are stored in seconds; show them in minutes in the sheet. */
 function fieldValue_(f) {
-  if (f.type === 'duration') return minutes_(f.value);
+  if (f.type === 'duration') return f.unit === 'sec' ? nz_(f.value) : minutes_(f.value);
   return nz_(f.value);
 }
 
 function fieldUnit_(f) {
-  if (f.type === 'duration') return 'min';
+  if (f.type === 'duration') return f.unit === 'sec' ? 'sec' : 'min';
   return f.unit || '';
 }
 

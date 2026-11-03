@@ -25,7 +25,9 @@ List<String> fieldLines(WorkoutSession s) {
     final v = f.value;
     if (v == null || (v is String && v.trim().isEmpty)) continue;
     final text = switch (f.type) {
-      FieldType.duration => fmtClock((v as num).round()),
+      FieldType.duration => f.unit == 'sec'
+          ? '${(v as num).round()} sec'
+          : fmtClock((v as num).round()),
       FieldType.number => '${fmtNumber((v as num).toDouble())}'
           '${f.unit.isEmpty ? '' : ' ${f.unit}'}',
       FieldType.integer => '${(v as num).round()}'

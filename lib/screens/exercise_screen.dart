@@ -124,7 +124,9 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     final s = raw.trim();
     if (s.isEmpty) return null;
     return switch (f.type) {
-      FieldType.duration => parseMinutesToSeconds(s),
+      FieldType.duration => f.entersSeconds
+          ? (double.tryParse(s) == null || double.parse(s) < 0 ? null : double.parse(s).round())
+          : parseMinutesToSeconds(s),
       FieldType.number => double.tryParse(s),
       FieldType.integer => int.tryParse(s) ?? double.tryParse(s)?.round(),
       FieldType.text => s,
@@ -527,8 +529,8 @@ class _FieldInput extends StatelessWidget {
     final (keyboard, suffix, hint) = switch (def.type) {
       FieldType.duration => (
           const TextInputType.numberWithOptions(decimal: true),
-          'min',
-          'minutes, e.g. 1.5',
+          def.entersSeconds ? 'sec' : 'min',
+          def.entersSeconds ? 'seconds, e.g. 45' : 'minutes, e.g. 1.5',
         ),
       FieldType.number => (
           const TextInputType.numberWithOptions(decimal: true),

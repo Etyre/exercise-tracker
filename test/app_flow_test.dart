@@ -227,9 +227,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.widgetWithText(TextField, 'reps'), findsNothing);
-    await tester.enterText(find.widgetWithText(TextField, 'Ramp up time'), '1.5');
-    await tester.enterText(find.widgetWithText(TextField, 'Stable intense work time'), '4');
-    await tester.enterText(find.widgetWithText(TextField, 'Less intense time'), '3');
+    await tester.enterText(find.widgetWithText(TextField, 'Ramp up time'), '45');
+    await tester.enterText(find.widgetWithText(TextField, 'Stable intense work time'), '100');
+    await tester.enterText(find.widgetWithText(TextField, 'Less intense time'), '70');
     await tester.enterText(find.widgetWithText(TextField, 'Ramp up speed'), '6.5');
     await tester.enterText(find.widgetWithText(TextField, 'Stable speed'), '8');
     await tester.enterText(find.widgetWithText(TextField, 'Cycles'), '4');
@@ -239,8 +239,9 @@ void main() {
 
     final s = sessions.forExercise('cardio_intervals').single;
     final byKey = {for (final f in s.fields) f.key: f.value};
-    expect(byKey['ramp_up_time'], 90);
-    expect(byKey['work_time'], 240);
+    expect(byKey['ramp_up_time'], 45); // entered in seconds
+    expect(byKey['work_time'], 100);
+    expect(byKey['easy_time'], 70);
     expect(byKey['ramp_up_mph'], 6.5);
     expect(byKey['cycles'], 4);
     expect(byKey['zone5_time'], 720);
@@ -290,7 +291,10 @@ void main() {
     await tester.tap(find.text('Add field'));
     await tester.pumpAndSettle();
     await tester.enterText(find.widgetWithText(TextField, 'Label'), 'Distance');
-    await tester.enterText(find.widgetWithText(TextField, 'Unit (optional)'), 'm');
+    await tester.tap(find.text('None'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('metres').last);
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Save'));
     await tester.pumpAndSettle();
     expect(find.text('Distance'), findsOneWidget);

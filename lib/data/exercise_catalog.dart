@@ -6,7 +6,7 @@ const String kOther = 'Other';
 
 /// Bump when [defaultExercises] gains entries, and list them in
 /// [exercisesAddedInVersion] so existing installs pick them up.
-const int kDefaultsVersion = 5;
+const int kDefaultsVersion = 6;
 
 const String kChinCurlGroup = 'Chin Ups & Bicep Curls';
 
@@ -30,6 +30,16 @@ Map<int, void Function(Exercise)> exerciseUpdatesInVersion() => {
       4: (e) {
         if (e.id == 'other') e.onTrackingTable = false;
       },
+      // v6: interval ramp/work/easy times are entered in seconds.
+      6: (e) {
+        if (e.id != 'cardio_intervals') return;
+        for (final f in e.fields) {
+          if (f.type == FieldType.duration && f.unit.isEmpty &&
+              const {'ramp_up_time', 'work_time', 'easy_time'}.contains(f.key)) {
+            f.unit = 'sec';
+          }
+        }
+      },
       // v5: chin ups and bicep curls share one tracking row.
       5: (e) {
         if ((e.id == 'chin_ups' || e.id == 'bicep_curls') && e.trackingGroup == null) {
@@ -42,8 +52,8 @@ Map<int, void Function(Exercise)> exerciseUpdatesInVersion() => {
 Exercise _other() =>
     Exercise(id: 'other', name: 'Other', category: kOther, onTrackingTable: false);
 
-FieldDef _duration(String key, String label) =>
-    FieldDef(key: key, label: label, type: FieldType.duration);
+FieldDef _duration(String key, String label, {String unit = 'min'}) =>
+    FieldDef(key: key, label: label, type: FieldType.duration, unit: unit);
 
 Exercise _strength(String id, String name, {String? group, String? trackingGroup}) =>
     Exercise(id: id, name: name, category: kStrength, group: group, hasSets: true,
@@ -57,9 +67,9 @@ List<Exercise> defaultExercises() => [
         name: 'Cardio Interval Training',
         category: kCardio,
         fields: [
-          _duration('ramp_up_time', 'Ramp up time'),
-          _duration('work_time', 'Stable intense work time'),
-          _duration('easy_time', 'Less intense time'),
+          _duration('ramp_up_time', 'Ramp up time', unit: 'sec'),
+          _duration('work_time', 'Stable intense work time', unit: 'sec'),
+          _duration('easy_time', 'Less intense time', unit: 'sec'),
           FieldDef(key: 'ramp_up_mph', label: 'Ramp up speed', unit: 'mph'),
           FieldDef(key: 'stable_mph', label: 'Stable speed', unit: 'mph'),
           FieldDef(key: 'cycles', label: 'Cycles', type: FieldType.integer),

@@ -5,6 +5,7 @@ import '../data/exercise_catalog.dart';
 import '../data/exercise_store.dart';
 import '../data/session_store.dart';
 import '../models/exercise.dart';
+import '../models/units.dart';
 import '../widgets/section_header.dart';
 
 /// Create a new exercise kind (no [exerciseId]) or edit an existing one.
@@ -306,8 +307,9 @@ class _EditExerciseScreenState extends State<EditExerciseScreen> {
                         child: const Icon(Icons.drag_handle),
                       ),
                       title: Text(f.label),
-                      subtitle: Text(
-                          '${f.type.label}${f.unit.isEmpty || f.type == FieldType.duration ? '' : ' · ${f.unit}'}'),
+                      subtitle: Text(f.isDuration
+                          ? 'Time · ${f.entersSeconds ? 'seconds' : 'minutes'}'
+                          : '${f.type.label}${f.unit.isEmpty ? '' : ' · ${f.unit}'}'),
                       trailing: IconButton(
                         tooltip: 'Remove field',
                         icon: const Icon(Icons.close),
@@ -374,60 +376,112 @@ class _FieldDialog extends StatefulWidget {
   State<_FieldDialog> createState() => _FieldDialogState();
 }
 
+const String _kOtherUnit = '__other__';
+
 class _FieldDialogState extends State<_FieldDialog> {
   late final TextEditingController _label;
-  late final TextEditingController _unit;
+  late final TextEditingController _customUnit;
   late FieldType _type;
+
+  /// Selected preset, or [_kOtherUnit] when typing a custom one.
+  late String _unitChoice;
 
   @override
   void initState() {
     super.initState();
-    _label = TextEditingController(text: widget.existing?.label ?? '');
-    _unit = TextEditingController(text: widget.existing?.unit ?? '');
-    _type = widget.existing?.type ?? FieldType.number;
+    final e = widget.existing;
+    _label = TextEditingController(text: e?.label ?? '');
+    _type = e?.type ?? FieldType.number;
+    final unit = e?.unit ?? '';
+    final presets = _type == FieldType.duration ? timeUnits : numberUnits;
+    final isPreset = presets.any((u) => u.value == unit);
+    _unitChoice = e == null
+        ? (_type == FieldType.duration ? 'min' : '')
+        : isPreset
+            ? unit
+            : _kOtherUnit;
+    _customUnit = TextEditingController(text: isPreset ? '' : unit);
   }
 
   @override
   void dispose() {
     _label.dispose();
-    _unit.dispose();
+    _customUnit.dispose();
     super.dispose();
+  }
+
+  void _setType(FieldType t) {
+    setState(() {
+      _type = t;
+      // Keep the choice if it's valid for the new type, else reset.
+      final presets = t == FieldType.duration ? timeUnits : numberUnits;
+      if (!presets.any((u) => u.value == _unitChoice) && _unitChoice != _kOtherUnit) {
+        _unitChoice = t == FieldType.duration ? 'min' : '';
+      }
+      if (t == FieldType.duration && _unitChoice == _kOtherUnit) _unitChoice = 'min';
+    });
+  }
+
+  String get _unit {
+    if (_type == FieldType.text) return '';
+    if (_unitChoice == _kOtherUnit) return _customUnit.text.trim();
+    return _unitChoice;
   }
 
   @override
   Widget build(BuildContext context) {
-    final showUnit = _type == FieldType.number || _type == FieldType.integer;
+    final isTime = _type == FieldType.duration;
+    final presets = isTime ? timeUnits : numberUnits;
     return AlertDialog(
       title: Text(widget.existing == null ? 'New field' : 'Edit field'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: _label,
-            autofocus: true,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(labelText: 'Label', hintText: 'e.g. Zone 5 time'),
-          ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<FieldType>(
-            initialValue: _type,
-            isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Type'),
-            items: [
-              for (final t in FieldType.values)
-                DropdownMenuItem(value: t, child: Text(t.label)),
-            ],
-            onChanged: (t) => setState(() => _type = t ?? _type),
-          ),
-          if (showUnit) ...[
-            const SizedBox(height: 12),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
             TextField(
-              controller: _unit,
-              decoration: const InputDecoration(
-                  labelText: 'Unit (optional)', hintText: 'e.g. mph, bpm, km'),
+              controller: _label,
+              autofocus: true,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(labelText: 'Label', hintText: 'e.g. Zone 5 time'),
             ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<FieldType>(
+              initialValue: _type,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'Type'),
+              items: [
+                for (final t in FieldType.values)
+                  DropdownMenuItem(value: t, child: Text(t.label)),
+              ],
+              onChanged: (t) => _setType(t ?? _type),
+            ),
+            if (_type != FieldType.text) ...[
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                key: ValueKey('unit-${_type.name}'),
+                initialValue: _unitChoice,
+                isExpanded: true,
+                decoration: InputDecoration(labelText: isTime ? 'Entered in' : 'Unit'),
+                items: [
+                  for (final u in presets)
+                    DropdownMenuItem(value: u.value, child: Text(u.label)),
+                  if (!isTime)
+                    const DropdownMenuItem(value: _kOtherUnit, child: Text('Other…')),
+                ],
+                onChanged: (v) => setState(() => _unitChoice = v ?? _unitChoice),
+              ),
+              if (!isTime && _unitChoice == _kOtherUnit) ...[
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _customUnit,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                      labelText: 'Custom unit', hintText: 'e.g. laps'),
+                ),
+              ],
+            ],
           ],
-        ],
+        ),
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
@@ -441,7 +495,7 @@ class _FieldDialogState extends State<_FieldDialog> {
                 key: widget.existing?.key ?? '',
                 label: label,
                 type: _type,
-                unit: showUnit ? _unit.text.trim() : '',
+                unit: _unit,
               ),
             );
           },
